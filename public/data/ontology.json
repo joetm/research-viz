@@ -80417,16 +80417,7 @@
                                   "depth": 8,
                                   "directCount": 0,
                                   "totalCount": 0,
-                                  "children": [
-                                    {
-                                      "name": "__pycache__",
-                                      "path": "Machine Learning/Deep Learning/General, Theory/Dive Into DL/code/d2l-en/jax/d2l/__pycache__",
-                                      "depth": 9,
-                                      "directCount": 0,
-                                      "totalCount": 0,
-                                      "children": []
-                                    }
-                                  ]
+                                  "children": []
                                 },
                                 {
                                   "name": "img",
@@ -80667,16 +80658,7 @@
                                   "depth": 8,
                                   "directCount": 0,
                                   "totalCount": 0,
-                                  "children": [
-                                    {
-                                      "name": "__pycache__",
-                                      "path": "Machine Learning/Deep Learning/General, Theory/Dive Into DL/code/d2l-en/mxnet/d2l/__pycache__",
-                                      "depth": 9,
-                                      "directCount": 0,
-                                      "totalCount": 0,
-                                      "children": []
-                                    }
-                                  ]
+                                  "children": []
                                 },
                                 {
                                   "name": "img",
@@ -80944,16 +80926,7 @@
                                   "depth": 8,
                                   "directCount": 0,
                                   "totalCount": 0,
-                                  "children": [
-                                    {
-                                      "name": "__pycache__",
-                                      "path": "Machine Learning/Deep Learning/General, Theory/Dive Into DL/code/d2l-en/pytorch/d2l/__pycache__",
-                                      "depth": 9,
-                                      "directCount": 0,
-                                      "totalCount": 0,
-                                      "children": []
-                                    }
-                                  ]
+                                  "children": []
                                 },
                                 {
                                   "name": "img",
@@ -81212,16 +81185,7 @@
                                   "depth": 8,
                                   "directCount": 0,
                                   "totalCount": 0,
-                                  "children": [
-                                    {
-                                      "name": "__pycache__",
-                                      "path": "Machine Learning/Deep Learning/General, Theory/Dive Into DL/code/d2l-en/tensorflow/d2l/__pycache__",
-                                      "depth": 9,
-                                      "directCount": 0,
-                                      "totalCount": 0,
-                                      "children": []
-                                    }
-                                  ]
+                                  "children": []
                                 },
                                 {
                                   "name": "img",
@@ -99189,14 +99153,6 @@
                       "directCount": 0,
                       "totalCount": 0,
                       "children": [
-                        {
-                          "name": "__pycache__",
-                          "path": "Machine Learning/MLOps/WandB MLOps Course/mlops-001/lesson1/__pycache__",
-                          "depth": 6,
-                          "directCount": 0,
-                          "totalCount": 0,
-                          "children": []
-                        },
                         {
                           "name": "artifacts",
                           "path": "Machine Learning/MLOps/WandB MLOps Course/mlops-001/lesson1/artifacts",

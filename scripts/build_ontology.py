@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-IGNORED_DIR_NAMES = frozenset({"venv", "node_modules", "__MACOSX"})
+IGNORED_DIR_NAMES = frozenset({"venv", "node_modules", "__MACOSX", "__pycache__"})
 
 
 def build_tree(root: Path, ext: str) -> tuple[dict, dict]:
