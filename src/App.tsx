@@ -6,14 +6,34 @@ import type { Meta, OntologyNode } from "./lib/ontology";
 import { ancestorsOf } from "./lib/ontology";
 import { search } from "./lib/search";
 import { useMediaQuery } from "./lib/useMediaQuery";
+import { useUrlPath } from "./lib/useUrlPath";
+
+function pathExists(root: OntologyNode, path: string): boolean {
+  if (!path) return true;
+  const segments = path.split("/");
+  let node: OntologyNode | undefined = root;
+  for (const seg of segments) {
+    node = node?.children.find((c) => c.name === seg);
+    if (!node) return false;
+  }
+  return true;
+}
 
 export default function App() {
   const [root, setRoot] = useState<OntologyNode | null>(null);
   const [meta, setMeta] = useState<Meta | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set([""]));
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [urlPath, setUrlPath] = useUrlPath();
+  const selectedPath = urlPath || null;
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const init = new Set<string>([""]);
+    if (urlPath) {
+      for (const a of ancestorsOf(urlPath)) init.add(a);
+      init.add(urlPath);
+    }
+    return init;
+  });
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const isWide = useMediaQuery("(min-width: 768px)");
@@ -39,6 +59,9 @@ export default function App() {
         if (cancelled) return;
         setRoot(tree);
         setMeta(m);
+        if (urlPath && !pathExists(tree, urlPath)) {
+          setUrlPath("", { replace: true });
+        }
       })
       .catch((err) => {
         if (!cancelled) setLoadError(String(err));
@@ -72,16 +95,24 @@ export default function App() {
     });
   }, []);
 
-  const setSelected = useCallback((path: string) => {
-    setSelectedPath(path);
-    // Expand ancestors so the selection is visible in the tree.
+  const setSelected = useCallback(
+    (path: string) => {
+      setUrlPath(path);
+    },
+    [setUrlPath]
+  );
+
+  // Expand ancestors whenever the selected path changes (from any source:
+  // clicks, browser back/forward, direct URL hits).
+  useEffect(() => {
+    if (!urlPath) return;
     setExpanded((prev) => {
       const next = new Set(prev);
-      for (const a of ancestorsOf(path)) next.add(a);
-      next.add(path);
+      for (const a of ancestorsOf(urlPath)) next.add(a);
+      next.add(urlPath);
       return next;
     });
-  }, []);
+  }, [urlPath]);
 
   if (loadError) {
     return (

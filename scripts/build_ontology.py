@@ -18,6 +18,44 @@ from pathlib import Path
 
 IGNORED_DIR_NAMES = frozenset({"venv", "node_modules", "__MACOSX", "__pycache__"})
 
+# Folders whose contents should be promoted to the parent (the folder itself is
+# erased from the hierarchy). PDFs and subfolders end up directly under the
+# parent topic; subfolders that collide by name with existing siblings are
+# merged.
+FLATTEN_DIR_NAMES = frozenset({"General, Theory"})
+
+
+def _reparent(node: dict, parent_path: str, depth: int) -> None:
+    node["path"] = (parent_path + "/" + node["name"]) if parent_path else node["name"]
+    node["depth"] = depth
+    for c in node["children"]:
+        _reparent(c, node["path"], depth + 1)
+
+
+def _merge_or_append(siblings: list[dict], new_node: dict) -> None:
+    for existing in siblings:
+        if existing["name"] == new_node["name"]:
+            existing["directCount"] += new_node["directCount"]
+            existing["totalCount"] += new_node["totalCount"]
+            for nc in new_node["children"]:
+                _merge_or_append(existing["children"], nc)
+            return
+    siblings.append(new_node)
+
+
+def flatten_skipped(node: dict) -> None:
+    new_children: list[dict] = []
+    for c in node["children"]:
+        flatten_skipped(c)
+        if c["name"] in FLATTEN_DIR_NAMES:
+            node["directCount"] += c["directCount"]
+            for gc in c["children"]:
+                _reparent(gc, node["path"], node["depth"] + 1)
+                _merge_or_append(new_children, gc)
+        else:
+            new_children.append(c)
+    node["children"] = new_children
+
 
 def build_tree(root: Path, ext: str) -> tuple[dict, dict]:
     ext_lower = ext.lower().lstrip(".")
@@ -82,6 +120,8 @@ def build_tree(root: Path, ext: str) -> tuple[dict, dict]:
         parent["children"].append(node)
         parent["totalCount"] += node["totalCount"]
 
+    flatten_skipped(nodes[root_abs])
+
     # Sort children by name at each level and strip internal _abs key.
     def finalize(node: dict) -> dict:
         node["children"].sort(key=lambda c: c["name"])
@@ -91,13 +131,26 @@ def build_tree(root: Path, ext: str) -> tuple[dict, dict]:
 
     tree = finalize(nodes[root_abs])
 
+    folder_count = 0
+    recomputed_max_depth = 0
+
+    def _stats(n: dict) -> None:
+        nonlocal folder_count, recomputed_max_depth
+        folder_count += 1
+        if n["depth"] > recomputed_max_depth:
+            recomputed_max_depth = n["depth"]
+        for c in n["children"]:
+            _stats(c)
+
+    _stats(tree)
+
     meta = {
         "root": str(root),
         "extension": ext_lower,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "totalFolders": len(nodes),
+        "totalFolders": folder_count,
         "totalMatches": total_matches,
-        "maxDepth": max_depth,
+        "maxDepth": recomputed_max_depth,
     }
 
     return tree, meta

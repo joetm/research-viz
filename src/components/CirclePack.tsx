@@ -112,7 +112,7 @@ export function CirclePack({
         isWithinFocus(d, target) &&
         radiusPx(d) >= 12 &&
         maxChars(d) >= 3 &&
-        (d === target || !hasVisibleChild(d));
+        !hasVisibleChild(d);
 
       const fittedName = (d: Circ) => {
         const name = d.data.name ?? "";

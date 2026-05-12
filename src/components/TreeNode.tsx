@@ -36,7 +36,10 @@ function TreeNodeImpl({
       <div
         role="row"
         data-path={node.path}
-        onClick={() => setSelected(node.path)}
+        onClick={() => {
+          if (isSelected && hasChildren) toggleExpanded(node.path);
+          else setSelected(node.path);
+        }}
         className={[
           "group flex items-center gap-1 py-0.5 pr-3 text-sm cursor-pointer select-none",
           isSelected
