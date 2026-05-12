@@ -3,7 +3,7 @@
   "path": "",
   "depth": 0,
   "directCount": 106,
-  "totalCount": 30013,
+  "totalCount": 30010,
   "children": [
     {
       "name": "AI",
@@ -21454,8 +21454,8 @@
               "children": []
             },
             {
-              "name": "C hatEval",
-              "path": "Benchmarks, gold standards, datasets/Agents/C hatEval",
+              "name": "ChatEval",
+              "path": "Benchmarks, gold standards, datasets/Agents/ChatEval",
               "depth": 3,
               "directCount": 1,
               "totalCount": 1,
@@ -72498,39 +72498,6 @@
         {
           "name": "trust",
           "path": "Knowledge/trust",
-          "depth": 2,
-          "directCount": 1,
-          "totalCount": 1,
-          "children": []
-        }
-      ]
-    },
-    {
-      "name": "LLM Operating System",
-      "path": "LLM Operating System",
-      "depth": 1,
-      "directCount": 0,
-      "totalCount": 3,
-      "children": [
-        {
-          "name": "Llama 2 Everywhere (L2E)",
-          "path": "LLM Operating System/Llama 2 Everywhere (L2E)",
-          "depth": 2,
-          "directCount": 1,
-          "totalCount": 1,
-          "children": []
-        },
-        {
-          "name": "llama.cpp",
-          "path": "LLM Operating System/llama.cpp",
-          "depth": 2,
-          "directCount": 1,
-          "totalCount": 1,
-          "children": []
-        },
-        {
-          "name": "llama2.c",
-          "path": "LLM Operating System/llama2.c",
           "depth": 2,
           "directCount": 1,
           "totalCount": 1,

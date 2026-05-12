@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { OntologyNode } from "../lib/ontology";
+import type { OntologyNode, ViewMode } from "../lib/ontology";
 import { TreeNode } from "./TreeNode";
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
   setSelected: (path: string) => void;
   searchVisible: Set<string> | null;
   searchMatches: Set<string> | null;
+  mode: ViewMode;
 };
 
 export function TreeView(props: Props) {

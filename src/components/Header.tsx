@@ -1,4 +1,4 @@
-import type { Meta } from "../lib/ontology";
+import type { Meta, ViewMode } from "../lib/ontology";
 
 function formatCollectedAt(iso: string): string {
   const d = new Date(iso);
@@ -14,9 +14,11 @@ type Props = {
   meta: Meta | null;
   query: string;
   onQueryChange: (q: string) => void;
+  mode: ViewMode;
+  onModeChange: (m: ViewMode) => void;
 };
 
-export function Header({ meta, query, onQueryChange }: Props) {
+export function Header({ meta, query, onQueryChange, mode, onModeChange }: Props) {
   return (
     <header className="flex items-center gap-6 border-b border-neutral-200 bg-white px-6 py-3">
       <div className="flex items-baseline gap-3">
@@ -28,6 +30,38 @@ export function Header({ meta, query, onQueryChange }: Props) {
             {formatCollectedAt(meta.generatedAt)}
           </span>
         )}
+        <div
+          className="ml-1 inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs"
+          role="group"
+          aria-label="View mode"
+        >
+          <button
+            type="button"
+            onClick={() => onModeChange("exploration")}
+            className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 transition-colors ${
+              mode === "exploration"
+                ? "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 cursor-default"
+                : "text-neutral-500 hover:text-neutral-800 cursor-pointer"
+            }`}
+            aria-pressed={mode === "exploration"}
+          >
+            <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+            Exploration
+          </button>
+          <button
+            type="button"
+            onClick={() => onModeChange("issues")}
+            className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 transition-colors ${
+              mode === "issues"
+                ? "bg-amber-50 text-amber-900 ring-1 ring-amber-200 cursor-default"
+                : "text-neutral-500 hover:text-neutral-800 cursor-pointer"
+            }`}
+            aria-pressed={mode === "issues"}
+          >
+            <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+            Issues
+          </button>
+        </div>
       </div>
       <div className="ml-auto relative">
         <input

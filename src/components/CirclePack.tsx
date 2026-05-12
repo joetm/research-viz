@@ -3,6 +3,7 @@ import { hierarchy, pack, type HierarchyCircularNode } from "d3-hierarchy";
 import { select } from "d3-selection";
 import "d3-transition";
 import type { OntologyNode } from "../lib/ontology";
+import { collapseLinearChains } from "../lib/ontology";
 import { depthColor } from "../lib/colors";
 
 type Props = {
@@ -32,7 +33,11 @@ export function CirclePack({
   const [drawn, setDrawn] = useState(false);
 
   const packed = useMemo<Circ>(() => {
-    const h = hierarchy<OntologyNode>(root)
+    const collapsed: OntologyNode = {
+      ...root,
+      children: root.children.map(collapseLinearChains),
+    };
+    const h = hierarchy<OntologyNode>(collapsed)
       .sum((d) => d.directCount)
       .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
     return pack<OntologyNode>().size([LAYOUT_SIZE, LAYOUT_SIZE]).padding(3)(h);
@@ -40,7 +45,10 @@ export function CirclePack({
 
   const byPath = useMemo(() => {
     const map = new Map<string, Circ>();
-    packed.each((d) => map.set(d.data.path, d as Circ));
+    packed.each((d) => {
+      map.set(d.data.path, d as Circ);
+      for (const a of d.data.aliases ?? []) map.set(a, d as Circ);
+    });
     return map;
   }, [packed]);
 
@@ -50,6 +58,7 @@ export function CirclePack({
 
     const s = select(svg);
     s.selectAll("*").remove();
+    focusRef.current = null;
     const view = s.append("g").attr("class", "view");
     const nodes = packed.descendants() as Circ[];
 
@@ -87,8 +96,7 @@ export function CirclePack({
       .attr("y", (d) => d.y)
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
-      .attr("fill", "#1f2937")
-      .text((d) => d.data.name || "Literatur");
+      .attr("fill", "#1f2937");
 
     function applyVisibility(target: Circ, scale: number) {
       s.selectAll<SVGCircleElement, Circ>("circle.node").style("display", (d) =>
@@ -105,25 +113,46 @@ export function CirclePack({
       const maxChars = (d: Circ) =>
         Math.floor((radiusPx(d) * 1.85) / (desiredPx(d) * 0.55));
 
+      const linesOf = (d: Circ): string[] => {
+        const chain = d.data.chainNames;
+        if (chain && chain.length > 1) return chain;
+        return [d.data.name || "Literatur"];
+      };
+
       const hasVisibleChild = (d: Circ) =>
         !!d.children?.some((c) => isWithinFocus(c as Circ, target));
-      const shouldLabel = (d: Circ) =>
-        d.depth > 0 &&
-        isWithinFocus(d, target) &&
-        radiusPx(d) >= 12 &&
-        maxChars(d) >= 3 &&
-        !hasVisibleChild(d);
-
-      const fittedName = (d: Circ) => {
-        const name = d.data.name ?? "";
-        const m = maxChars(d);
-        return name.length <= m ? name : name.slice(0, m - 1) + "…";
+      const shouldLabel = (d: Circ) => {
+        if (d.depth === 0) return false;
+        if (!isWithinFocus(d, target)) return false;
+        if (maxChars(d) < 3) return false;
+        if (hasVisibleChild(d)) return false;
+        const n = linesOf(d).length;
+        return radiusPx(d) >= 12 * Math.sqrt(n);
       };
+
+      const fittedLine = (line: string, m: number) =>
+        line.length <= m ? line : line.slice(0, Math.max(1, m - 1)) + "…";
+
+      const LINE_HEIGHT_EM = 1.05;
 
       s.selectAll<SVGTextElement, Circ>("text.label")
         .style("display", (d) => (shouldLabel(d) ? null : "none"))
         .style("font-size", (d) => `${desiredPx(d) / totalPx}px`)
-        .text((d) => (shouldLabel(d) ? fittedName(d) : ""));
+        .each(function (d) {
+          const sel = select(this);
+          sel.selectAll("tspan").remove();
+          if (!shouldLabel(d)) return;
+          const lines = linesOf(d);
+          const m = maxChars(d);
+          const startDy = -((lines.length - 1) / 2) * LINE_HEIGHT_EM;
+          lines.forEach((line, i) => {
+            sel
+              .append("tspan")
+              .attr("x", d.x)
+              .attr("dy", i === 0 ? `${startDy}em` : `${LINE_HEIGHT_EM}em`)
+              .text(fittedLine(line, m));
+          });
+        });
     }
 
     function zoomTo(target: Circ, animate: boolean) {
@@ -166,20 +195,29 @@ export function CirclePack({
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
+    const matchesAny = (d: Circ, set: Set<string>) => {
+      if (set.has(d.data.path)) return true;
+      const aliases = d.data.aliases;
+      if (aliases) for (const a of aliases) if (set.has(a)) return true;
+      return false;
+    };
+    const isSelected = (d: Circ) =>
+      d.data.path === selectedPath ||
+      (selectedPath !== null && (d.data.aliases?.includes(selectedPath) ?? false));
     select(svg)
       .selectAll<SVGCircleElement, Circ>("circle.node")
       .attr("fill-opacity", (d) =>
-        searchVisible == null || searchVisible.has(d.data.path) ? 1 : 0.15
+        searchVisible == null || matchesAny(d, searchVisible) ? 1 : 0.15
       )
       .attr("stroke", (d) =>
-        d.data.path === selectedPath
+        isSelected(d)
           ? "#b45309"
-          : searchMatches?.has(d.data.path)
+          : searchMatches && matchesAny(d, searchMatches)
             ? "#92400e"
             : "rgba(0,0,0,0.08)"
       )
       .attr("stroke-width", (d) =>
-        d.data.path === selectedPath ? 2.5 : searchMatches?.has(d.data.path) ? 1.5 : 0.5
+        isSelected(d) ? 2.5 : searchMatches && matchesAny(d, searchMatches) ? 1.5 : 0.5
       );
   }, [selectedPath, searchVisible, searchMatches]);
 

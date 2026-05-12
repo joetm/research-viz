@@ -1,8 +1,20 @@
-const PALETTE = [
+import type { ViewMode } from "./ontology";
+
+const AMBER_PALETTE = [
   "#fef3c7", "#fde68a", "#fcd34d", "#fbbf24",
   "#f59e0b", "#d97706", "#b45309",
 ] as const;
 
+const EMERALD_PALETTE = [
+  "#d1fae5", "#a7f3d0", "#6ee7b7", "#34d399",
+  "#10b981", "#059669", "#047857",
+] as const;
+
 export function depthColor(depth: number): string {
-  return PALETTE[Math.min(depth, PALETTE.length - 1)];
+  return AMBER_PALETTE[Math.min(depth, AMBER_PALETTE.length - 1)];
+}
+
+export function depthColorForMode(depth: number, mode: ViewMode): string {
+  const palette = mode === "exploration" ? EMERALD_PALETTE : AMBER_PALETTE;
+  return palette[Math.min(depth, palette.length - 1)];
 }

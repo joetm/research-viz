@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Header } from "./components/Header";
 import { TreeView } from "./components/TreeView";
 import { CirclePack } from "./components/CirclePack";
-import type { Meta, OntologyNode } from "./lib/ontology";
-import { ancestorsOf } from "./lib/ontology";
+import type { Meta, OntologyNode, ViewMode } from "./lib/ontology";
+import { ancestorsOf, filterToIssues } from "./lib/ontology";
 import { search } from "./lib/search";
 import { useMediaQuery } from "./lib/useMediaQuery";
 import { useUrlPath } from "./lib/useUrlPath";
@@ -26,6 +26,7 @@ export default function App() {
 
   const [urlPath, setUrlPath] = useUrlPath();
   const selectedPath = urlPath || null;
+  const [mode, setMode] = useState<ViewMode>("exploration");
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const init = new Set<string>([""]);
     if (urlPath) {
@@ -59,9 +60,6 @@ export default function App() {
         if (cancelled) return;
         setRoot(tree);
         setMeta(m);
-        if (urlPath && !pathExists(tree, urlPath)) {
-          setUrlPath("", { replace: true });
-        }
       })
       .catch((err) => {
         if (!cancelled) setLoadError(String(err));
@@ -71,9 +69,27 @@ export default function App() {
     };
   }, []);
 
+  const displayedRoot = useMemo<OntologyNode | null>(() => {
+    if (!root) return null;
+    if (mode === "exploration") return root;
+    return (
+      filterToIssues(root) ?? { ...root, directCount: 0, totalCount: 0, children: [] }
+    );
+  }, [root, mode]);
+
+  // Re-validate the URL path against the currently-displayed tree. Runs on
+  // initial load (when displayedRoot first becomes non-null) and on every
+  // mode switch. Clears the URL if the path no longer exists in this view.
+  useEffect(() => {
+    if (!displayedRoot) return;
+    if (urlPath && !pathExists(displayedRoot, urlPath)) {
+      setUrlPath("", { replace: true });
+    }
+  }, [displayedRoot, urlPath, setUrlPath]);
+
   const searchResult = useMemo(
-    () => (root ? search(root, debouncedQuery) : null),
-    [root, debouncedQuery]
+    () => (displayedRoot ? search(displayedRoot, debouncedQuery) : null),
+    [displayedRoot, debouncedQuery]
   );
 
   // Auto-expand ancestors of search matches whenever the search result changes.
@@ -129,7 +145,7 @@ export default function App() {
     );
   }
 
-  if (!root || !meta) {
+  if (!root || !meta || !displayedRoot) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-neutral-500">
         Loading ontology…
@@ -139,7 +155,13 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <Header meta={meta} query={query} onQueryChange={setQuery} />
+      <Header
+        meta={meta}
+        query={query}
+        onQueryChange={setQuery}
+        mode={mode}
+        onModeChange={setMode}
+      />
       <main
         className="grid min-h-0 flex-1 grid-rows-1 overflow-hidden"
         style={{ gridTemplateColumns: isWide ? "1fr 1fr" : "1fr" }}
@@ -150,19 +172,20 @@ export default function App() {
           }`}
         >
           <TreeView
-            root={root}
+            root={displayedRoot}
             expanded={expanded}
             toggleExpanded={toggleExpanded}
             selectedPath={selectedPath}
             setSelected={setSelected}
             searchVisible={searchResult?.visible ?? null}
             searchMatches={searchResult?.matches ?? null}
+            mode={mode}
           />
         </section>
         {isWide && (
           <section className="min-h-0 overflow-hidden bg-neutral-50">
             <CirclePack
-              root={root}
+              root={displayedRoot}
               selectedPath={selectedPath}
               setSelected={setSelected}
               searchVisible={searchResult?.visible ?? null}

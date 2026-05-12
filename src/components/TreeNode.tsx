@@ -1,6 +1,6 @@
 import { memo } from "react";
-import type { OntologyNode } from "../lib/ontology";
-import { depthColor } from "../lib/colors";
+import type { OntologyNode, ViewMode } from "../lib/ontology";
+import { depthColorForMode } from "../lib/colors";
 
 type Props = {
   node: OntologyNode;
@@ -10,6 +10,7 @@ type Props = {
   setSelected: (path: string) => void;
   searchVisible: Set<string> | null;
   searchMatches: Set<string> | null;
+  mode: ViewMode;
 };
 
 function TreeNodeImpl({
@@ -20,6 +21,7 @@ function TreeNodeImpl({
   setSelected,
   searchVisible,
   searchMatches,
+  mode,
 }: Props) {
   const isExpanded = expanded.has(node.path);
   const hasChildren = node.children.length > 0;
@@ -56,16 +58,18 @@ function TreeNodeImpl({
             e.stopPropagation();
             if (hasChildren) toggleExpanded(node.path);
           }}
-          className={`w-4 text-neutral-500 text-xs ${hasChildren ? "" : "invisible"}`}
+          className={`w-4 text-xs ${
+            mode === "exploration" ? "text-emerald-600" : "text-amber-600"
+          } ${hasChildren ? "" : "invisible"}`}
           aria-label={isExpanded ? "Collapse" : "Expand"}
         >
-          {isExpanded ? "▼" : "▶"}
+          {isExpanded ? "▼︎" : "▶︎"}
         </button>
         <span
           aria-hidden
           className="inline-block h-2 w-2 shrink-0 rounded-full"
           style={{
-            background: isEmpty ? "#e5e5e5" : depthColor(node.depth),
+            background: isEmpty ? "#e5e5e5" : depthColorForMode(node.depth, mode),
             boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.08)",
           }}
         />
@@ -95,6 +99,7 @@ function TreeNodeImpl({
               setSelected={setSelected}
               searchVisible={searchVisible}
               searchMatches={searchMatches}
+              mode={mode}
             />
           ))}
         </div>
