@@ -3,7 +3,7 @@ import { Header } from "./components/Header";
 import { TreeView } from "./components/TreeView";
 import { CirclePack } from "./components/CirclePack";
 import type { Meta, OntologyNode, ViewMode } from "./lib/ontology";
-import { ancestorsOf, filterToIssues } from "./lib/ontology";
+import { ancestorsOf, applySources, filterToIssues } from "./lib/ontology";
 import { search } from "./lib/search";
 import { useMediaQuery } from "./lib/useMediaQuery";
 import { useUrlPath } from "./lib/useUrlPath";
@@ -23,10 +23,13 @@ export default function App() {
   const [root, setRoot] = useState<OntologyNode | null>(null);
   const [meta, setMeta] = useState<Meta | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadProgress, setLoadProgress] = useState<number | null>(null);
 
   const [urlPath, setUrlPath] = useUrlPath();
   const selectedPath = urlPath || null;
   const [mode, setMode] = useState<ViewMode>("exploration");
+  const [showLiteratur, setShowLiteratur] = useState(true);
+  const [showMisc, setShowMisc] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const init = new Set<string>([""]);
     if (urlPath) {
@@ -46,11 +49,35 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      fetch("data/ontology.json").then((r) => {
-        if (!r.ok) throw new Error(`ontology.json: ${r.status}`);
+
+    async function loadOntology(): Promise<OntologyNode> {
+      const r = await fetch("data/ontology.json");
+      if (!r.ok) throw new Error(`ontology.json: ${r.status}`);
+      const total = Number(r.headers.get("Content-Length"));
+      if (!r.body || !total) {
         return r.json() as Promise<OntologyNode>;
-      }),
+      }
+      const reader = r.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (!cancelled) setLoadProgress(Math.min(received / total, 1));
+      }
+      const buf = new Uint8Array(received);
+      let pos = 0;
+      for (const c of chunks) {
+        buf.set(c, pos);
+        pos += c.length;
+      }
+      return JSON.parse(new TextDecoder().decode(buf)) as OntologyNode;
+    }
+
+    Promise.all([
+      loadOntology(),
       fetch("data/meta.json").then((r) => {
         if (!r.ok) throw new Error(`meta.json: ${r.status}`);
         return r.json() as Promise<Meta>;
@@ -71,11 +98,12 @@ export default function App() {
 
   const displayedRoot = useMemo<OntologyNode | null>(() => {
     if (!root) return null;
-    if (mode === "exploration") return root;
+    const scoped = applySources(root, showLiteratur, showMisc);
+    if (mode === "exploration") return scoped;
     return (
-      filterToIssues(root) ?? { ...root, directCount: 0, totalCount: 0, children: [] }
+      filterToIssues(scoped) ?? { ...scoped, directCount: 0, totalCount: 0, children: [] }
     );
-  }, [root, mode]);
+  }, [root, mode, showLiteratur, showMisc]);
 
   // Re-validate the URL path against the currently-displayed tree. Runs on
   // initial load (when displayedRoot first becomes non-null) and on every
@@ -146,9 +174,23 @@ export default function App() {
   }
 
   if (!root || !meta || !displayedRoot) {
+    const pct = loadProgress == null ? null : Math.round(loadProgress * 100);
     return (
-      <div className="flex h-full items-center justify-center text-sm text-neutral-500">
-        Loading ontology…
+      <div className="flex h-full items-center justify-center">
+        <div className="w-64">
+          <div className="mb-1 flex justify-between font-mono text-xs text-neutral-500">
+            <span>Loading ontology…</span>
+            {pct != null && <span>{pct}%</span>}
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
+            <div
+              className={`h-full bg-amber-500 transition-[width] duration-150 ${
+                pct == null ? "animate-pulse" : ""
+              }`}
+              style={{ width: pct == null ? "100%" : `${pct}%` }}
+            />
+          </div>
+        </div>
       </div>
     );
   }
@@ -161,6 +203,10 @@ export default function App() {
         onQueryChange={setQuery}
         mode={mode}
         onModeChange={setMode}
+        showLiteratur={showLiteratur}
+        showMisc={showMisc}
+        onToggleLiteratur={() => setShowLiteratur((v) => !v)}
+        onToggleMisc={() => setShowMisc((v) => !v)}
       />
       <main
         className="grid min-h-0 flex-1 grid-rows-1 overflow-hidden"

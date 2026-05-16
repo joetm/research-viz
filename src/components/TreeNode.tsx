@@ -59,7 +59,11 @@ function TreeNodeImpl({
             if (hasChildren) toggleExpanded(node.path);
           }}
           className={`w-4 text-xs ${
-            mode === "exploration" ? "text-emerald-600" : "text-amber-600"
+            node.lowPriority
+              ? "text-neutral-400"
+              : mode === "exploration"
+                ? "text-emerald-600"
+                : "text-amber-600"
           } ${hasChildren ? "" : "invisible"}`}
           aria-label={isExpanded ? "Collapse" : "Expand"}
         >
@@ -73,7 +77,7 @@ function TreeNodeImpl({
             boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.08)",
           }}
         />
-        <span className={`flex-1 truncate ${isEmpty ? "text-neutral-400" : ""}`}>
+        <span className={`flex-1 truncate ${isEmpty || node.lowPriority ? "text-neutral-400" : ""}`}>
           {node.name || "Literatur"}
         </span>
         <span

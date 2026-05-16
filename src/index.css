@@ -3,3 +3,13 @@
 @tailwind utilities;
 
 html, body, #root { height: 100%; }
+
+/* zoom */
+html {
+    zoom: 1.33;
+}
+@media only screen and (max-width: 768px) {                                                                                  
+    html {                                                                                                                   
+        zoom: 1;                                                                                                             
+    }                                                                                                                        
+}   

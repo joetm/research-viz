@@ -1,8 +1,10 @@
 {
   "root": "/home/joppenla/RESEARCH/Literatur",
   "extension": "pdf",
-  "generatedAt": "2026-05-12T07:02:49.838862+00:00",
-  "totalFolders": 17926,
-  "totalMatches": 30010,
-  "maxDepth": 11
+  "generatedAt": "2026-05-16T04:34:28.032056+00:00",
+  "totalFolders": 27743,
+  "totalMatches": 45115,
+  "maxDepth": 15,
+  "miscFolders": 9781,
+  "miscMatches": 15096
 }

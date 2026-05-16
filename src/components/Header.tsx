@@ -16,18 +16,61 @@ type Props = {
   onQueryChange: (q: string) => void;
   mode: ViewMode;
   onModeChange: (m: ViewMode) => void;
+  showLiteratur: boolean;
+  showMisc: boolean;
+  onToggleLiteratur: () => void;
+  onToggleMisc: () => void;
 };
 
-export function Header({ meta, query, onQueryChange, mode, onModeChange }: Props) {
+export function Header({
+  meta,
+  query,
+  onQueryChange,
+  mode,
+  onModeChange,
+  showLiteratur,
+  showMisc,
+  onToggleLiteratur,
+  onToggleMisc,
+}: Props) {
+  const miscFolders = meta?.miscFolders ?? 0;
+  const miscMatches = meta?.miscMatches ?? 0;
+  const folders = meta
+    ? (showLiteratur ? meta.totalFolders - miscFolders : 0) +
+      (showMisc ? miscFolders : 0)
+    : 0;
+  const matches = meta
+    ? (showLiteratur ? meta.totalMatches - miscMatches : 0) +
+      (showMisc ? miscMatches : 0)
+    : 0;
+  const sourceClass = (active: boolean) =>
+    active
+      ? "cursor-pointer hover:text-neutral-800"
+      : "cursor-pointer text-neutral-300 hover:text-neutral-500";
   return (
     <header className="flex items-center gap-6 border-b border-neutral-200 bg-white px-6 py-3">
       <div className="flex items-baseline gap-3">
         <h1 className="text-base font-semibold tracking-tight">jonaso's research viz</h1>
         {meta && (
           <span className="font-mono text-xs text-neutral-500">
-            Literatur · {meta.totalFolders.toLocaleString()} folders ·{" "}
-            {meta.totalMatches.toLocaleString()} PDFs · collected{" "}
-            {formatCollectedAt(meta.generatedAt)}
+            <button
+              type="button"
+              onClick={onToggleLiteratur}
+              className={sourceClass(showLiteratur)}
+              aria-pressed={showLiteratur}
+            >
+              Literatur
+            </button>
+            <button
+              type="button"
+              onClick={onToggleMisc}
+              className={sourceClass(showMisc)}
+              aria-pressed={showMisc}
+            >
+              +Misc
+            </button>{" "}
+            · {folders.toLocaleString()} folders · {matches.toLocaleString()} PDFs ·
+            collected {formatCollectedAt(meta.generatedAt)}
           </span>
         )}
         <div
@@ -46,7 +89,7 @@ export function Header({ meta, query, onQueryChange, mode, onModeChange }: Props
             aria-pressed={mode === "exploration"}
           >
             <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-            Exploration
+            Concepts
           </button>
           <button
             type="button"

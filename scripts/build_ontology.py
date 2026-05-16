@@ -32,6 +32,12 @@ def _reparent(node: dict, parent_path: str, depth: int) -> None:
         _reparent(c, node["path"], depth + 1)
 
 
+def _mark_low_priority(node: dict) -> None:
+    node["lowPriority"] = True
+    for c in node["children"]:
+        _mark_low_priority(c)
+
+
 def _merge_or_append(siblings: list[dict], new_node: dict) -> None:
     for existing in siblings:
         if existing["name"] == new_node["name"]:
@@ -173,6 +179,12 @@ def main() -> int:
         default="pdf",
         help="File extension to count, without dot (default: %(default)s)",
     )
+    parser.add_argument(
+        "--misc-root",
+        default="/home/joppenla/RESEARCH/Misc",
+        help="Secondary, less-relevant root grafted in as a 'Misc' node "
+        "marked low-priority (default: %(default)s). Skipped if missing.",
+    )
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -184,6 +196,27 @@ def main() -> int:
 
     print(f"Walking {root} ...", file=sys.stderr)
     tree, meta = build_tree(root, args.ext)
+
+    misc_root = Path(args.misc_root)
+    if misc_root.is_dir():
+        print(f"Walking {misc_root} (low-priority) ...", file=sys.stderr)
+        misc_tree, misc_meta = build_tree(misc_root, args.ext)
+        # Promote Misc's children to top level (no "Misc" wrapper node), marked
+        # low-priority; merge any that collide by name with a Literatur sibling.
+        for child in misc_tree["children"]:
+            _reparent(child, "", 1)
+            _mark_low_priority(child)
+            _merge_or_append(tree["children"], child)
+        tree["children"].sort(key=lambda c: c["name"])
+        tree["directCount"] += misc_tree["directCount"]
+        tree["totalCount"] += misc_tree["totalCount"]
+        meta["miscFolders"] = misc_meta["totalFolders"]
+        meta["miscMatches"] = misc_meta["totalMatches"]
+        meta["totalFolders"] += misc_meta["totalFolders"]
+        meta["totalMatches"] += misc_meta["totalMatches"]
+        meta["maxDepth"] = max(meta["maxDepth"], misc_meta["maxDepth"])
+    else:
+        print(f"note: misc root not found, skipping: {misc_root}", file=sys.stderr)
 
     ontology_path = out_dir / "ontology.json"
     meta_path = out_dir / "meta.json"

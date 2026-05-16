@@ -11,6 +11,9 @@ export type OntologyNode = {
   // Viz-only: intermediate paths that were swallowed by a collapse, so click
   // handling and deep-links resolve to the merged circle.
   aliases?: string[];
+  // Set by build_ontology.py on every node grafted in from the secondary
+  // "Misc" root: a less-relevant source, de-emphasized in the UI.
+  lowPriority?: boolean;
 };
 
 export type Meta = {
@@ -20,6 +23,9 @@ export type Meta = {
   totalFolders: number;
   totalMatches: number;
   maxDepth: number;
+  // Contribution of the low-priority "Misc" root, when present.
+  miscFolders?: number;
+  miscMatches?: number;
 };
 
 export function ancestorsOf(path: string): string[] {
@@ -34,6 +40,22 @@ export function ancestorsOf(path: string): string[] {
 }
 
 export type ViewMode = "exploration" | "issues";
+
+// Filter the root's children by source. Low-priority children (grafted from
+// the "Misc" root) are kept only when `showMisc`; the rest only when
+// `showLiteratur`. totalCount is recomputed from the surviving children.
+export function applySources(
+  root: OntologyNode,
+  showLiteratur: boolean,
+  showMisc: boolean
+): OntologyNode {
+  const children = root.children.filter((c) =>
+    c.lowPriority ? showMisc : showLiteratur
+  );
+  const totalCount =
+    root.directCount + children.reduce((sum, c) => sum + c.totalCount, 0);
+  return { ...root, children, totalCount };
+}
 
 function reparent(node: OntologyNode, parentPath: string, depth: number): OntologyNode {
   const path = parentPath ? `${parentPath}/${node.name}` : node.name;
@@ -100,6 +122,15 @@ export function collapseLinearChains(node: OntologyNode): OntologyNode {
     directCount: node.directCount + only.directCount,
     totalCount: only.totalCount + node.directCount,
   };
+}
+
+// Collapse any folder with no PDFs anywhere inside it into a childless leaf.
+// Used by the circle pack so empty subtrees count as one unit rather than
+// inflating their parent's size by subfolder count (d3-pack spaces even
+// zero-radius children apart by the layout padding).
+export function collapseEmptyFolders(node: OntologyNode): OntologyNode {
+  if (node.totalCount === 0) return { ...node, children: [] };
+  return { ...node, children: node.children.map(collapseEmptyFolders) };
 }
 
 export function filterToIssues(node: OntologyNode): OntologyNode | null {

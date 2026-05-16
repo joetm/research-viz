@@ -3,8 +3,8 @@ import { hierarchy, pack, type HierarchyCircularNode } from "d3-hierarchy";
 import { select } from "d3-selection";
 import "d3-transition";
 import type { OntologyNode } from "../lib/ontology";
-import { collapseLinearChains } from "../lib/ontology";
-import { depthColor } from "../lib/colors";
+import { collapseEmptyFolders, collapseLinearChains } from "../lib/ontology";
+import { depthColor, grayDepthColor } from "../lib/colors";
 
 type Props = {
   root: OntologyNode;
@@ -33,12 +33,13 @@ export function CirclePack({
   const [drawn, setDrawn] = useState(false);
 
   const packed = useMemo<Circ>(() => {
+    const pruned = collapseEmptyFolders(root);
     const collapsed: OntologyNode = {
-      ...root,
-      children: root.children.map(collapseLinearChains),
+      ...pruned,
+      children: pruned.children.map(collapseLinearChains),
     };
     const h = hierarchy<OntologyNode>(collapsed)
-      .sum((d) => d.directCount)
+      .sum((d) => (d.totalCount === 0 ? 1 : d.directCount))
       .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
     return pack<OntologyNode>().size([LAYOUT_SIZE, LAYOUT_SIZE]).padding(3)(h);
   }, [root]);
@@ -263,5 +264,6 @@ function isWithinFocus(d: Circ, focus: Circ): boolean {
 
 function fillFor(d: Circ): string {
   if (d.data.totalCount === 0) return "#f5f5f5";
+  if (d.data.lowPriority) return grayDepthColor(d.depth);
   return depthColor(d.depth);
 }
