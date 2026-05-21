@@ -43,6 +43,8 @@ def _merge_or_append(siblings: list[dict], new_node: dict) -> None:
         if existing["name"] == new_node["name"]:
             existing["directCount"] += new_node["directCount"]
             existing["totalCount"] += new_node["totalCount"]
+            existing["importantDirectCount"] += new_node["importantDirectCount"]
+            existing["importantTotalCount"] += new_node["importantTotalCount"]
             for nc in new_node["children"]:
                 _merge_or_append(existing["children"], nc)
             return
@@ -55,6 +57,7 @@ def flatten_skipped(node: dict) -> None:
         flatten_skipped(c)
         if c["name"] in FLATTEN_DIR_NAMES:
             node["directCount"] += c["directCount"]
+            node["importantDirectCount"] += c["importantDirectCount"]
             for gc in c["children"]:
                 _reparent(gc, node["path"], node["depth"] + 1)
                 _merge_or_append(new_children, gc)
@@ -78,16 +81,20 @@ def build_tree(root: Path, ext: str) -> tuple[dict, dict]:
         if is_repo:
             dirnames[:] = []
             direct_count = 1
+            important_direct_count = 0
         else:
             dirnames[:] = sorted(
                 d for d in dirnames
                 if not d.startswith(".") and d not in IGNORED_DIR_NAMES
             )
             try:
-                direct_count = sum(1 for f in filenames if f.lower().endswith(suffix))
+                matching = [f for f in filenames if f.lower().endswith(suffix)]
+                direct_count = len(matching)
+                important_direct_count = sum(1 for f in matching if f.startswith("!"))
             except OSError as e:
                 print(f"warn: error reading {dirpath}: {e}", file=sys.stderr)
                 direct_count = 0
+                important_direct_count = 0
 
         rel = os.path.relpath(dirpath, root_abs)
         if rel == ".":
@@ -108,6 +115,8 @@ def build_tree(root: Path, ext: str) -> tuple[dict, dict]:
             "depth": depth,
             "directCount": direct_count,
             "totalCount": 0,  # filled in post-order pass
+            "importantDirectCount": important_direct_count,
+            "importantTotalCount": 0,  # filled in post-order pass
             "children": [],
             "_abs": dirpath,
         }
@@ -118,6 +127,7 @@ def build_tree(root: Path, ext: str) -> tuple[dict, dict]:
         node = nodes[abs_path]
         parent_abs = os.path.dirname(abs_path)
         node["totalCount"] += node["directCount"]
+        node["importantTotalCount"] += node["importantDirectCount"]
         if abs_path == root_abs:
             continue
         parent = nodes.get(parent_abs)
@@ -125,6 +135,7 @@ def build_tree(root: Path, ext: str) -> tuple[dict, dict]:
             continue
         parent["children"].append(node)
         parent["totalCount"] += node["totalCount"]
+        parent["importantTotalCount"] += node["importantTotalCount"]
 
     flatten_skipped(nodes[root_abs])
 
@@ -156,6 +167,7 @@ def build_tree(root: Path, ext: str) -> tuple[dict, dict]:
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "totalFolders": folder_count,
         "totalMatches": total_matches,
+        "importantMatches": tree["importantTotalCount"],
         "maxDepth": recomputed_max_depth,
     }
 
@@ -210,30 +222,49 @@ def main() -> int:
         tree["children"].sort(key=lambda c: c["name"])
         tree["directCount"] += misc_tree["directCount"]
         tree["totalCount"] += misc_tree["totalCount"]
+        tree["importantDirectCount"] += misc_tree["importantDirectCount"]
+        tree["importantTotalCount"] += misc_tree["importantTotalCount"]
         meta["miscFolders"] = misc_meta["totalFolders"]
         meta["miscMatches"] = misc_meta["totalMatches"]
+        meta["miscImportantMatches"] = misc_meta["importantMatches"]
         meta["totalFolders"] += misc_meta["totalFolders"]
         meta["totalMatches"] += misc_meta["totalMatches"]
+        meta["importantMatches"] += misc_meta["importantMatches"]
         meta["maxDepth"] = max(meta["maxDepth"], misc_meta["maxDepth"])
     else:
         print(f"note: misc root not found, skipping: {misc_root}", file=sys.stderr)
 
     ontology_path = out_dir / "ontology.json"
     meta_path = out_dir / "meta.json"
-
-    with ontology_path.open("w", encoding="utf-8") as f:
-        json.dump(tree, f, ensure_ascii=False, indent=2)
-    with meta_path.open("w", encoding="utf-8") as f:
-        json.dump(meta, f, ensure_ascii=False, indent=2)
+    with ontology_path.open("w", encoding="utf-8") as f: json.dump(tree, f, ensure_ascii=False, indent=2)
+    with meta_path.open("w", encoding="utf-8") as f: json.dump(meta, f, ensure_ascii=False, indent=2)
 
     print(
         f"Wrote {ontology_path} ({ontology_path.stat().st_size:,} bytes)\n"
-        f"      {meta_path}\n"
+        f"      {meta_path}\n",
+        file=sys.stderr,
+    )
+
+    ## deploy to academic website
+    # web_dir = Path(__file__).resolve().parent.parent.parent / "academic-site" / "static" / "research" / "ontology" / "data"
+    # ontology_path = web_dir / "ontology.json"
+    # meta_path = web_dir / "meta.json"
+    # try:
+    #     with ontology_path.open("w", encoding="utf-8") as f: json.dump(tree, f, ensure_ascii=False, indent=2)
+    #     with meta_path.open("w", encoding="utf-8") as f: json.dump(meta, f, ensure_ascii=False, indent=2)
+    #     print(
+    #         f"Deployed to {ontology_path} ({ontology_path.stat().st_size:,} bytes)\n"
+    #         f"      {meta_path}\n",
+    #         file=sys.stderr,
+    #     )
+    # except: pass
+
+    print(
         f"  folders: {meta['totalFolders']:,}\n"
         f"  {args.ext}s:    {meta['totalMatches']:,}\n"
         f"  max depth: {meta['maxDepth']}",
-        file=sys.stderr,
     )
+
     return 0
 
 

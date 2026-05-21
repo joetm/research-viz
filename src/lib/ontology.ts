@@ -4,6 +4,10 @@ export type OntologyNode = {
   depth: number;
   directCount: number;
   totalCount: number;
+  // PDFs in this folder (resp. subtree) whose filename starts with `!`,
+  // marking them as important. Used by the "Important only" filter.
+  importantDirectCount: number;
+  importantTotalCount: number;
   children: OntologyNode[];
   // Viz-only (set by collapseLinearChains): segment names along a collapsed
   // single-child chain, outermost-first. Absent for non-collapsed nodes.
@@ -22,10 +26,12 @@ export type Meta = {
   generatedAt: string;
   totalFolders: number;
   totalMatches: number;
+  importantMatches: number;
   maxDepth: number;
   // Contribution of the low-priority "Misc" root, when present.
   miscFolders?: number;
   miscMatches?: number;
+  miscImportantMatches?: number;
 };
 
 export function ancestorsOf(path: string): string[] {
@@ -54,7 +60,26 @@ export function applySources(
   );
   const totalCount =
     root.directCount + children.reduce((sum, c) => sum + c.totalCount, 0);
-  return { ...root, children, totalCount };
+  const importantTotalCount =
+    root.importantDirectCount +
+    children.reduce((sum, c) => sum + c.importantTotalCount, 0);
+  return { ...root, children, totalCount, importantTotalCount };
+}
+
+// Prune to the subtree of folders that transitively contain at least one
+// important PDF, then substitute the important counts into the regular count
+// slots so existing render code (tree badges, circle-pack sizing) reflects
+// importance without further changes. Off-toggle: do not call this function.
+export function applyImportantOnly(root: OntologyNode): OntologyNode {
+  const children = root.children
+    .filter((c) => c.importantTotalCount > 0)
+    .map(applyImportantOnly);
+  return {
+    ...root,
+    children,
+    directCount: root.importantDirectCount,
+    totalCount: root.importantTotalCount,
+  };
 }
 
 function reparent(node: OntologyNode, parentPath: string, depth: number): OntologyNode {
@@ -75,6 +100,8 @@ function mergeOrAppend(siblings: OntologyNode[], incoming: OntologyNode): void {
   }
   existing.directCount += incoming.directCount;
   existing.totalCount += incoming.totalCount;
+  existing.importantDirectCount += incoming.importantDirectCount;
+  existing.importantTotalCount += incoming.importantTotalCount;
   for (const c of incoming.children) mergeOrAppend(existing.children, c);
 }
 
@@ -85,11 +112,13 @@ function mergeOrAppend(siblings: OntologyNode[], incoming: OntologyNode): void {
 // "Issues" are.
 function eraseIssuesDeep(node: OntologyNode): OntologyNode {
   let directBonus = 0;
+  let importantDirectBonus = 0;
   const newChildren: OntologyNode[] = [];
   for (const c of node.children) {
     const rc = eraseIssuesDeep(c);
     if (c.name === "Issues") {
       directBonus += rc.directCount;
+      importantDirectBonus += rc.importantDirectCount;
       for (const gc of rc.children) {
         mergeOrAppend(newChildren, reparent(gc, node.path, node.depth + 1));
       }
@@ -101,7 +130,18 @@ function eraseIssuesDeep(node: OntologyNode): OntologyNode {
   const directCount = node.directCount + directBonus;
   const totalCount =
     directCount + newChildren.reduce((sum, c) => sum + c.totalCount, 0);
-  return { ...node, directCount, totalCount, children: newChildren };
+  const importantDirectCount = node.importantDirectCount + importantDirectBonus;
+  const importantTotalCount =
+    importantDirectCount +
+    newChildren.reduce((sum, c) => sum + c.importantTotalCount, 0);
+  return {
+    ...node,
+    directCount,
+    totalCount,
+    importantDirectCount,
+    importantTotalCount,
+    children: newChildren,
+  };
 }
 
 // Collapse linear single-child chains into one node. The merged node uses the
@@ -121,6 +161,8 @@ export function collapseLinearChains(node: OntologyNode): OntologyNode {
     aliases: [node.path, ...(only.aliases ?? [])],
     directCount: node.directCount + only.directCount,
     totalCount: only.totalCount + node.directCount,
+    importantDirectCount: node.importantDirectCount + only.importantDirectCount,
+    importantTotalCount: only.importantTotalCount + node.importantDirectCount,
   };
 }
 
@@ -138,9 +180,11 @@ export function filterToIssues(node: OntologyNode): OntologyNode | null {
 
   const liftedChildren: OntologyNode[] = [];
   let liftedDirect = 0;
+  let liftedImportantDirect = 0;
   if (issuesChild) {
     const flat = eraseIssuesDeep(issuesChild);
     liftedDirect = flat.directCount;
+    liftedImportantDirect = flat.importantDirectCount;
     for (const gc of flat.children) {
       liftedChildren.push(reparent(gc, node.path, node.depth + 1));
     }
@@ -163,11 +207,17 @@ export function filterToIssues(node: OntologyNode): OntologyNode | null {
   const directCount = liftedDirect;
   const totalCount =
     directCount + newChildren.reduce((sum, c) => sum + c.totalCount, 0);
+  const importantDirectCount = liftedImportantDirect;
+  const importantTotalCount =
+    importantDirectCount +
+    newChildren.reduce((sum, c) => sum + c.importantTotalCount, 0);
 
   return {
     ...node,
     directCount,
     totalCount,
+    importantDirectCount,
+    importantTotalCount,
     children: newChildren,
   };
 }

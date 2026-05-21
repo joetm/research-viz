@@ -3,7 +3,7 @@ import { Header } from "./components/Header";
 import { TreeView } from "./components/TreeView";
 import { CirclePack } from "./components/CirclePack";
 import type { Meta, OntologyNode, ViewMode } from "./lib/ontology";
-import { ancestorsOf, applySources, filterToIssues } from "./lib/ontology";
+import { ancestorsOf, applyImportantOnly, applySources, filterToIssues } from "./lib/ontology";
 import { search } from "./lib/search";
 import { useMediaQuery } from "./lib/useMediaQuery";
 import { useUrlPath } from "./lib/useUrlPath";
@@ -26,10 +26,11 @@ export default function App() {
   const [loadProgress, setLoadProgress] = useState<number | null>(null);
 
   const [urlPath, setUrlPath] = useUrlPath();
-  const selectedPath = urlPath || null;
+  const selectedPath = urlPath;
   const [mode, setMode] = useState<ViewMode>("exploration");
   const [showLiteratur, setShowLiteratur] = useState(true);
   const [showMisc, setShowMisc] = useState(false);
+  const [importantOnly, setImportantOnly] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const init = new Set<string>([""]);
     if (urlPath) {
@@ -99,11 +100,19 @@ export default function App() {
   const displayedRoot = useMemo<OntologyNode | null>(() => {
     if (!root) return null;
     const scoped = applySources(root, showLiteratur, showMisc);
-    if (mode === "exploration") return scoped;
-    return (
-      filterToIssues(scoped) ?? { ...scoped, directCount: 0, totalCount: 0, children: [] }
-    );
-  }, [root, mode, showLiteratur, showMisc]);
+    const modeFiltered =
+      mode === "exploration"
+        ? scoped
+        : filterToIssues(scoped) ?? {
+            ...scoped,
+            directCount: 0,
+            totalCount: 0,
+            importantDirectCount: 0,
+            importantTotalCount: 0,
+            children: [],
+          };
+    return importantOnly ? applyImportantOnly(modeFiltered) : modeFiltered;
+  }, [root, mode, showLiteratur, showMisc, importantOnly]);
 
   // Re-validate the URL path against the currently-displayed tree. Runs on
   // initial load (when displayedRoot first becomes non-null) and on every
@@ -142,6 +151,12 @@ export default function App() {
   const setSelected = useCallback(
     (path: string) => {
       setUrlPath(path);
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        for (const a of ancestorsOf(path)) next.add(a);
+        next.add(path);
+        return next;
+      });
     },
     [setUrlPath]
   );
@@ -199,6 +214,7 @@ export default function App() {
     <div className="flex h-full flex-col">
       <Header
         meta={meta}
+        displayedRoot={displayedRoot}
         query={query}
         onQueryChange={setQuery}
         mode={mode}
@@ -207,6 +223,8 @@ export default function App() {
         showMisc={showMisc}
         onToggleLiteratur={() => setShowLiteratur((v) => !v)}
         onToggleMisc={() => setShowMisc((v) => !v)}
+        importantOnly={importantOnly}
+        onToggleImportantOnly={() => setImportantOnly((v) => !v)}
       />
       <main
         className="grid min-h-0 flex-1 grid-rows-1 overflow-hidden"

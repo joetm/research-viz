@@ -8,7 +8,7 @@ import { depthColor, grayDepthColor } from "../lib/colors";
 
 type Props = {
   root: OntologyNode;
-  selectedPath: string | null;
+  selectedPath: string;
   setSelected: (path: string) => void;
   searchVisible: Set<string> | null;
   searchMatches: Set<string> | null;
@@ -120,13 +120,10 @@ export function CirclePack({
         return [d.data.name || "Literatur"];
       };
 
-      const hasVisibleChild = (d: Circ) =>
-        !!d.children?.some((c) => isWithinFocus(c as Circ, target));
       const shouldLabel = (d: Circ) => {
-        if (d.depth === 0) return false;
         if (!isWithinFocus(d, target)) return false;
+        if (d.depth !== target.depth + 1) return false;
         if (maxChars(d) < 3) return false;
-        if (hasVisibleChild(d)) return false;
         const n = linesOf(d).length;
         return radiusPx(d) >= 12 * Math.sqrt(n);
       };
@@ -204,7 +201,7 @@ export function CirclePack({
     };
     const isSelected = (d: Circ) =>
       d.data.path === selectedPath ||
-      (selectedPath !== null && (d.data.aliases?.includes(selectedPath) ?? false));
+      (d.data.aliases?.includes(selectedPath) ?? false);
     select(svg)
       .selectAll<SVGCircleElement, Circ>("circle.node")
       .attr("fill-opacity", (d) =>
@@ -224,7 +221,6 @@ export function CirclePack({
 
   // When external selection changes (tree click), drill into that folder.
   useEffect(() => {
-    if (selectedPath === null) return;
     const target = byPath.get(selectedPath);
     if (!target) return;
     zoomToRef.current(target, true);

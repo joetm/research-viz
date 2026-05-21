@@ -6,7 +6,7 @@ type Props = {
   node: OntologyNode;
   expanded: Set<string>;
   toggleExpanded: (path: string) => void;
-  selectedPath: string | null;
+  selectedPath: string;
   setSelected: (path: string) => void;
   searchVisible: Set<string> | null;
   searchMatches: Set<string> | null;

@@ -6,7 +6,7 @@ type Props = {
   root: OntologyNode;
   expanded: Set<string>;
   toggleExpanded: (path: string) => void;
-  selectedPath: string | null;
+  selectedPath: string;
   setSelected: (path: string) => void;
   searchVisible: Set<string> | null;
   searchMatches: Set<string> | null;
@@ -18,11 +18,10 @@ export function TreeView(props: Props) {
 
   // Scroll selected into view when it changes (e.g., from circle-pack click).
   useEffect(() => {
-    if (!props.selectedPath) return;
     const el = scrollRef.current?.querySelector(
       `[data-path="${CSS.escape(props.selectedPath)}"]`
     );
-    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    el?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [props.selectedPath]);
 
   return (

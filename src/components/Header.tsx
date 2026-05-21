@@ -1,4 +1,4 @@
-import type { Meta, ViewMode } from "../lib/ontology";
+import type { Meta, OntologyNode, ViewMode } from "../lib/ontology";
 
 function formatCollectedAt(iso: string): string {
   const d = new Date(iso);
@@ -10,8 +10,15 @@ function formatCollectedAt(iso: string): string {
   });
 }
 
+function countFolders(node: OntologyNode): number {
+  let n = 1;
+  for (const c of node.children) n += countFolders(c);
+  return n;
+}
+
 type Props = {
   meta: Meta | null;
+  displayedRoot: OntologyNode | null;
   query: string;
   onQueryChange: (q: string) => void;
   mode: ViewMode;
@@ -20,10 +27,13 @@ type Props = {
   showMisc: boolean;
   onToggleLiteratur: () => void;
   onToggleMisc: () => void;
+  importantOnly: boolean;
+  onToggleImportantOnly: () => void;
 };
 
 export function Header({
   meta,
+  displayedRoot,
   query,
   onQueryChange,
   mode,
@@ -32,17 +42,27 @@ export function Header({
   showMisc,
   onToggleLiteratur,
   onToggleMisc,
+  importantOnly,
+  onToggleImportantOnly,
 }: Props) {
   const miscFolders = meta?.miscFolders ?? 0;
   const miscMatches = meta?.miscMatches ?? 0;
-  const folders = meta
-    ? (showLiteratur ? meta.totalFolders - miscFolders : 0) +
-      (showMisc ? miscFolders : 0)
-    : 0;
-  const matches = meta
-    ? (showLiteratur ? meta.totalMatches - miscMatches : 0) +
-      (showMisc ? miscMatches : 0)
-    : 0;
+  // When the important-only filter is on, displayedRoot has already been
+  // pruned and the important counts substituted into the regular count slots,
+  // so its totals are the right summary numbers. Otherwise fall back to the
+  // meta-derived source-toggle math.
+  const folders = importantOnly && displayedRoot
+    ? countFolders(displayedRoot)
+    : meta
+      ? (showLiteratur ? meta.totalFolders - miscFolders : 0) +
+        (showMisc ? miscFolders : 0)
+      : 0;
+  const matches = importantOnly && displayedRoot
+    ? displayedRoot.totalCount
+    : meta
+      ? (showLiteratur ? meta.totalMatches - miscMatches : 0) +
+        (showMisc ? miscMatches : 0)
+      : 0;
   const sourceClass = (active: boolean) =>
     active
       ? "cursor-pointer hover:text-neutral-800"
@@ -50,7 +70,7 @@ export function Header({
   return (
     <header className="flex items-center gap-6 border-b border-neutral-200 bg-white px-6 py-3">
       <div className="flex items-baseline gap-3">
-        <h1 className="text-base font-semibold tracking-tight">jonaso's research viz</h1>
+        <h1 className="text-base font-semibold tracking-tight">jonaso's research ontology</h1>
         {meta && (
           <span className="font-mono text-xs text-neutral-500">
             <button
@@ -69,7 +89,8 @@ export function Header({
             >
               +Misc
             </button>{" "}
-            · {folders.toLocaleString()} folders · {matches.toLocaleString()} PDFs ·
+            · {folders.toLocaleString()} folders · {matches.toLocaleString()}{" "}
+            {importantOnly ? "important PDFs" : "PDFs"} ·
             collected {formatCollectedAt(meta.generatedAt)}
           </span>
         )}
@@ -106,27 +127,43 @@ export function Header({
           </button>
         </div>
       </div>
-      <div className="ml-auto relative">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") onQueryChange("");
-          }}
-          placeholder="filter folders…"
-          className="w-72 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => onQueryChange("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
-            aria-label="Clear search"
-          >
-            ×
-          </button>
-        )}
+      <div className="ml-auto flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleImportantOnly}
+          aria-pressed={importantOnly}
+          className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors ${
+            importantOnly
+              ? "border-rose-200 bg-rose-50 text-rose-900 ring-1 ring-rose-200"
+              : "border-neutral-200 bg-neutral-50 text-neutral-500 hover:text-neutral-800"
+          }`}
+          title="Show only folders containing important PDFs (filenames prefixed with !)"
+        >
+          <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-rose-500" />
+          Important only
+        </button>
+        <div className="relative">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") onQueryChange("");
+            }}
+            placeholder="filter folders…"
+            className="w-72 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => onQueryChange("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );
