@@ -2,11 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Header } from "./components/Header";
 import { TreeView } from "./components/TreeView";
 import { CirclePack } from "./components/CirclePack";
+import { NetworkGraph } from "./components/NetworkGraph";
 import type { Meta, OntologyNode, ViewMode } from "./lib/ontology";
 import { ancestorsOf, applyImportantOnly, applySources, filterToIssues } from "./lib/ontology";
 import { search } from "./lib/search";
+import { buildCrossLinks } from "./lib/crossLinks";
 import { useMediaQuery } from "./lib/useMediaQuery";
 import { useUrlPath } from "./lib/useUrlPath";
+
+type RightTab = "circles" | "network";
 
 function pathExists(root: OntologyNode, path: string): boolean {
   if (!path) return true;
@@ -41,6 +45,7 @@ export default function App() {
   });
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [rightTab, setRightTab] = useState<RightTab>("circles");
   const isWide = useMediaQuery("(min-width: 768px)");
 
   useEffect(() => {
@@ -127,6 +132,11 @@ export default function App() {
   const searchResult = useMemo(
     () => (displayedRoot ? search(displayedRoot, debouncedQuery) : null),
     [displayedRoot, debouncedQuery]
+  );
+
+  const crossLinks = useMemo(
+    () => (displayedRoot ? buildCrossLinks(displayedRoot) : null),
+    [displayedRoot]
   );
 
   // Auto-expand ancestors of search matches whenever the search result changes.
@@ -247,14 +257,59 @@ export default function App() {
           />
         </section>
         {isWide && (
-          <section className="min-h-0 overflow-hidden bg-neutral-50">
-            <CirclePack
-              root={displayedRoot}
-              selectedPath={selectedPath}
-              setSelected={setSelected}
-              searchVisible={searchResult?.visible ?? null}
-              searchMatches={searchResult?.matches ?? null}
-            />
+          <section className="flex min-h-0 flex-col overflow-hidden bg-neutral-50">
+            <div className="flex items-center gap-1 border-b border-neutral-200 bg-white px-3 py-1.5">
+              <div
+                className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs"
+                role="group"
+                aria-label="Visualization"
+              >
+                <button
+                  type="button"
+                  onClick={() => setRightTab("circles")}
+                  className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 transition-colors ${
+                    rightTab === "circles"
+                      ? "bg-amber-50 text-amber-900 ring-1 ring-amber-200 cursor-default"
+                      : "text-neutral-500 hover:text-neutral-800 cursor-pointer"
+                  }`}
+                  aria-pressed={rightTab === "circles"}
+                >
+                  <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                  Circles
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRightTab("network")}
+                  className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 transition-colors ${
+                    rightTab === "network"
+                      ? "bg-blue-50 text-blue-900 ring-1 ring-blue-200 cursor-default"
+                      : "text-neutral-500 hover:text-neutral-800 cursor-pointer"
+                  }`}
+                  aria-pressed={rightTab === "network"}
+                >
+                  <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-blue-500" />
+                  Network
+                </button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1">
+              {rightTab === "circles" ? (
+                <CirclePack
+                  root={displayedRoot}
+                  selectedPath={selectedPath}
+                  setSelected={setSelected}
+                  searchVisible={searchResult?.visible ?? null}
+                  searchMatches={searchResult?.matches ?? null}
+                />
+              ) : crossLinks ? (
+                <NetworkGraph
+                  root={displayedRoot}
+                  selectedPath={selectedPath}
+                  setSelected={setSelected}
+                  crossLinks={crossLinks}
+                />
+              ) : null}
+            </div>
           </section>
         )}
       </main>
