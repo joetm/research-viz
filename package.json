@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && cp -r ./dist/* ../academic-site/static/research/ontology/",
+    "build": "python3 scripts/build_ontology.py && tsc -b && vite build && cp -r ./dist/* ../academic-site/static/research/ontology/",
     "preview": "vite preview"
   },
   "dependencies": {
